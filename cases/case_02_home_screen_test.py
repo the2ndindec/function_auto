@@ -13,7 +13,7 @@ from common.init_operate import BaseTest
 
 class TestHome(BaseTest):
 
-    @pytest.mark.skip('to fix')
+    @pytest.mark.skip('unfinished')
     def test_01_synchronize(self):
         self.home_screen.sync_data()
         # assert self.home_screen.get_toast('同步完成') is True

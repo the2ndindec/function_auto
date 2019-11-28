@@ -7,16 +7,18 @@ date: 2019/11/25 11:21
 Desc:
 """
 import time
-import unittest
+
+import pytest
 
 from common.init_operate import BaseTest
 
 
 class TestLogin(BaseTest):
 
+    @pytest.mark.smoketest
     def test_01_login_success(self):
         # self.login_screen.permission()
-        self.login_screen.server_opera('192.168.3.113:8081/sdzk-mine')
+        self.login_screen.server_opera('192.168.3.113:8080/sdzk')
         self.login_screen.input_username('admin')
         self.login_screen.input_password('123456')
         self.login_screen.click_loginbtn()
