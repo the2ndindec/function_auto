@@ -195,5 +195,6 @@ dmypy.json
 .pyre/
 
 /demotest.py
-/report/*
+/report/html/*
+/report/xml/*
 /screenshots/*
