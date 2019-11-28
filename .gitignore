@@ -194,3 +194,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+/demotest.py
+/report/html/*
+/report/xml/*
+/screenshots/*
