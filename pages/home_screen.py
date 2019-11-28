@@ -17,7 +17,7 @@ class HomeScreen(BasePage):
     # 重大风险清单
     major_risk = read_ConfigObj.get_config('home', 'major_risk')
     # 风险点
-    risk_point = read_ConfigObj.get_config('home', 'risk_point')
+    address_point = read_ConfigObj.get_config('home', 'risk_point')
     # 三违录入
     three_vio_add = read_ConfigObj.get_config('home', 'three_vio_add')
     # 三违查询
