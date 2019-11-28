@@ -10,6 +10,8 @@ from common import driver_operate
 from common.base_operate import BaseOperate
 from pages.home_screen import HomeScreen
 from pages.login_screen import LoginScreen
+from pages.major_risk_screen import MajorRiskScreen
+from pages.address_screen import AddressScreen
 from pages.vio_add_screen import VioAddScreen
 
 
@@ -21,6 +23,8 @@ class BaseTest:
         self.login_screen = LoginScreen(self.driver)
         self.home_screen = HomeScreen(self.driver)
         self.vio_add_screen = VioAddScreen(self.driver)
+        self.major_screen = MajorRiskScreen(self.driver)
+        self.address_point_screen = AddressScreen(self.driver)
 
     def setup(self):
         pass
