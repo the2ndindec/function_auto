@@ -39,8 +39,7 @@ def detail_of_risk_sql(hazard_name):
            "where tsp.typegroupcode='riskLevel') riskgrade on riskgrade.typecode = ds.ye_risk_grade " \
            "inner join (select tsy.typename,tsy.typecode from t_s_type tsy left join t_s_typegroup tsp on tsy.typegroupid=tsp.id " \
            "where tsp.typegroupcode='hazardCate') hazardcate on hazardcate.typecode = ds.ye_hazard_cate inner join t_b_post_manage pm " \
-           "on pm.id = ds.post_id where ds.ismajor = 1 and hm.hazard_name = '{}' and ds.is_delete = '0' and ds.origin = '2';".format(
-        hazard_name.strip())
+           "on pm.id = ds.post_id where ds.ismajor = 1 and hm.hazard_name = '{}' and ds.is_delete = '0' and ds.origin = '2';".format(hazard_name.strip())
 
 
 def damage_type_code_sql(hazard_name):
@@ -95,3 +94,95 @@ def risk_on_address(address):
            "inner join t_b_address_info a on a.id = dar.address_id inner JOIN (select t.typecode, t.typename FROM t_s_type t " \
            "INNER JOIN t_s_typegroup tg on tg.id = t.typegroupid WHERE tg.typegroupcode = 'proCate_gradeControl') p on p.typecode = ds.ye_profession " \
            "WHERE a.address = '{}'".format(address.strip())
+
+
+def detail_of_vio(vio_date, vio_address, vio_unit, vio_desc):
+    """三违详情查询"""
+    return """SELECT CAST(three.vio_date as CHAR) AS 违章时间,address.address AS 违章地点,three.vio_people AS 违章人员,qualitative.typename AS 违章定性,
+    three.stop_people AS 制止人,tsd.departname AS 违章单位,category.typename AS 违章分类,level1.typename AS 三违级别,tsd1.departname AS 查处单位,
+    three.vio_fact_desc AS 三违事实描述,three.remark AS 备注 FROM t_b_three_violations three INNER JOIN t_b_address_info address ON address.id = three.vio_address 
+    INNER JOIN (SELECT tst.typecode,tst.typename FROM t_s_type tst INNER JOIN t_s_typegroup tsg ON tsg.id = tst.typegroupid WHERE tsg.typegroupname = '违章定性') 
+    qualitative ON qualitative.typecode = three.vio_qualitative INNER JOIN t_s_depart tsd ON tsd.id = three.vio_units LEFT JOIN t_s_depart tsd1 ON 
+    tsd1.id = three.find_units INNER JOIN (SELECT tst.typecode,tst.typename FROM t_s_type tst INNER JOIN t_s_typegroup tsg ON tsg.id = tst.typegroupid  
+    WHERE tsg.typegroupname = '违章分类') category ON category.typecode = three.vio_category INNER JOIN (SELECT tst.typecode,tst.typename FROM t_s_type tst 
+    INNER JOIN t_s_typegroup tsg ON tsg.id = tst.typegroupid WHERE tsg.typegroupname = '三违级别') level1 ON level1.typecode = three.vio_level 
+    WHERE three.vio_date LIKE '{_date}%' AND address.address = '{_address}'AND tsd.departname = '{_unit}'AND three.vio_fact_desc = '{_desc}'""" \
+        .format(**{"_date": vio_date, "_address": vio_address, '_unit': vio_unit, '_desc': vio_desc})
+
+
+def detail_of_hidden(hidden_desc, exam_type, exam_date, **kwargs):
+    """隐患录入已上报隐患详情"""
+
+    global _kw_not_none, _kw_none
+    from common.mysql_operation import ConnMysql
+    # 先获取隐患整改方式
+    if not kwargs:
+        deal_type = ConnMysql().get_info(get_deal_type(hidden_desc=hidden_desc, exam_type=exam_type, exam_date=exam_date))
+    else:
+        deal_type = ConnMysql().get_info(get_deal_type(hidden_desc=hidden_desc, exam_type=exam_type, exam_date=exam_date, kwargs=kwargs[list(kwargs)[0]]))
+
+    limit_param = "cast(hd.limit_date as CHAR) as 限期日期,"
+    current_param = "reviewman.realname as 复查人,"
+
+    _tem_sql_1 = "SELECT examtype1.typename as 检查类型,CAST(hd.exam_date as CHAR) as 检查时间,shift1.typename as 班次,ai.address as 地点,examman.realname AS 检查人," \
+                 "tsd.departname as 责任单位,hd.duty_man as 责任人,category1.typename as 隐患类别,hid.typename as 隐患等级,category.typename as 隐患类型,"
+
+    _tem_sql_2 = "hd.problem_desc as 问题描述 FROM t_b_hidden_danger_exam hd INNER JOIN t_b_address_info ai ON ai.id = hd.address left join t_s_depart tsd " \
+                 "on hd.duty_unit=tsd.id left join(select tsy.typename,tsy.typecode from t_s_type tsy left join t_s_typegroup tsp on tsy.typegroupid=tsp.id " \
+                 "where tsp.typegroupname='问题分类') examtype1 on examtype1.typecode=hd.exam_type left join(select tsy.typename,tsy.typecode from t_s_type tsy " \
+                 "left join t_s_typegroup tsp on tsy.typegroupid=tsp.id where tsp.typegroupname='班次') shift1 on shift1.typecode=hd.shift " \
+                 "left join(select tsy.typename,tsy.typecode from t_s_type tsy left join t_s_typegroup tsp on tsy.typegroupid=tsp.id " \
+                 "where tsp.typegroupname='隐患类别') category1 on category1.typecode=hd.hidden_category left join (SELECT bu.realname,bu.id " \
+                 "FROM t_s_base_user bu) examman ON examman.id = hd.fill_card_manids LEFT JOIN (SELECT tsy.typename,tsy.typecode FROM t_s_type tsy " \
+                 "LEFT JOIN t_s_typegroup tsp ON tsy.typegroupid = tsp.id WHERE tsp.typegroupcode = 'hiddenType')category ON category.typecode = hd.hidden_type " \
+                 "left join (SELECT bu.realname,bu.id FROM t_s_base_user bu)reviewman " \
+                 "ON reviewman.id = hd.review_man left join(select tsy.typename,tsy.typecode from t_s_type tsy left join t_s_typegroup tsp " \
+                 "on tsy.typegroupid=tsp.id where tsp.typegroupcode='hiddenLevel') hid on hid.typecode = hd.hidden_nature "
+
+    if deal_type == '1':  # 限时整改
+        if kwargs:
+            if 'depart' in kwargs[list(kwargs)[0]]:  # 隐患整改
+                _kw_not_none = "WHERE hd.problem_desc = '{}' AND hd.exam_type = (SELECT tsp.typecode FROM t_s_type tsp WHERE tsp.typename = '{}') " \
+                               "AND hd.exam_date LIKE '{}%' and tsd.departname='{}'".format(hidden_desc, exam_type, exam_date, kwargs[list(kwargs)[0]][7:])
+            if 'check' in kwargs[list(kwargs)[0]]:  # 隐患复查
+                _kw_not_none = "WHERE hd.problem_desc = '{}' AND hd.duty_unit = (SELECT tsp.id FROM t_s_depart tsp WHERE tsp.departname = '{}') " \
+                               "AND hd.exam_date LIKE '{}%' and examman.realname='{}'".format(hidden_desc, exam_type, exam_date, kwargs[list(kwargs)[0]][6:])
+            return _tem_sql_1 + limit_param + _tem_sql_2 + _kw_not_none
+        else:
+            _kw_none = "WHERE hd.problem_desc = '{}' AND hd.exam_type =(SELECT tsp.typecode FROM t_s_type tsp WHERE tsp.typename = '{}')AND hd.exam_date " \
+                       "LIKE '{}%'".format(hidden_desc, exam_type, exam_date)
+            return _tem_sql_1 + limit_param + _tem_sql_2 + _kw_none
+
+    if deal_type == '2':  # 现场处理
+        if kwargs:
+            if 'depart' in kwargs[list(kwargs)[0]]:  # 隐患整改
+                _kw_not_none = "WHERE hd.problem_desc = '{}' AND hd.exam_type = (SELECT tsp.typecode FROM t_s_type tsp WHERE tsp.typename = '{}') " \
+                               "AND hd.exam_date LIKE '{}%' and tsd.departname='{}'".format(hidden_desc, exam_type, exam_date, kwargs[list(kwargs)[0]])
+            if 'check' in kwargs[list(kwargs)[0]]:  # 隐患复查
+                _kw_not_none = "WHERE hd.problem_desc = '{}' AND hd.duty_unit = (SELECT tsp.id FROM t_s_depart tsp WHERE tsp.departname = '{}') " \
+                               "AND hd.exam_date LIKE '{}%' and examman.realname='{}'".format(hidden_desc, exam_type, exam_date, kwargs[list(kwargs)[0]])
+            return _tem_sql_1 + current_param + _tem_sql_2 + _kw_not_none
+        else:
+            _kw_none = "WHERE hd.problem_desc = '{}' AND hd.exam_type =(SELECT tsp.typecode FROM t_s_type tsp WHERE tsp.typename = '{}')AND hd.exam_date " \
+                       "LIKE '{}%'".format(hidden_desc, exam_type, exam_date)
+            return _tem_sql_1 + current_param + _tem_sql_2 + _kw_none
+
+
+def get_deal_type(hidden_desc, exam_type, exam_date, **kwargs):
+    """查询隐患数据的处理状态,kwargs参数中主要是判断是否包含责任单位"""
+    if not kwargs:  # 不包含责任单位 隐患录入时使用
+        return "select hd.deal_type from t_b_hidden_danger_exam hd where hd.problem_desc = '{}' AND hd.exam_type = ( SELECT tsp.typecode FROM t_s_type tsp " \
+               "WHERE tsp.typename = '{}' ) AND hd.exam_date LIKE '{}%'".format(hidden_desc, exam_type, exam_date)
+    else:
+        if 'depart' in kwargs[list(kwargs)[0]]:  # 隐患整改使用
+            return "select hd.deal_type from t_b_hidden_danger_exam hd INNER join t_s_depart d on d.id = hd.duty_unit where hd.problem_desc = '{}' " \
+                   "AND hd.exam_type = (SELECT tsp.typecode FROM t_s_type tsp WHERE tsp.typename = '{}' ) AND hd.exam_date LIKE '{}%' " \
+                   "and d.departname = '{}';".format(hidden_desc, exam_type, exam_date, kwargs[list(kwargs)[0]][7:])
+        if 'check' in kwargs[list(kwargs)[0]]:  # 包含检查人，隐患复查使用
+            return "SELECT d.deal_type FROM t_b_hidden_danger_exam d INNER JOIN t_s_base_user u on u.id = d.fill_card_manids INNER JOIN " \
+                   "(SELECT tsp.id FROM t_s_depart tsp WHERE tsp.departname = '{}' ) type ON type.id = d.duty_unit WHERE d.exam_date LIKE '{}%' " \
+                   "AND d.problem_desc = '{}' AND u.realname = '{}'".format(exam_type, exam_date, hidden_desc, kwargs[list(kwargs)[0]][6:])
+
+
+if __name__ == '__main__':
+    print(detail_of_hidden(hidden_desc='现场', exam_type='矿领导带班', exam_date='2019-11-29', examUnit='x'))
