@@ -18,11 +18,11 @@ class TestLogin(BaseTest):
     @pytest.mark.smoketest
     def test_01_login_success(self):
         # self.login_screen.permission()
-        self.login_screen.server_opera('192.168.3.113:8080/sdzk')
+        # 执行测试脚本时，取消以下三行注释 👇
+        self.login_screen.server_opera('192.168.3.200:8080/sdzk')
         self.login_screen.input_username('admin')
         self.login_screen.input_password('123456')
         self.login_screen.click_loginbtn()
         time.sleep(1)
-        # assert self.login_screen.login_success() == '主页'
         self.driver.assert_equal(self.login_screen.login_success(), '主页')
 

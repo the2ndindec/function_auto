@@ -8,9 +8,10 @@ Desc:封装元素的基本操作
 """
 import inspect
 import time
+import random
 
 import allure
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, InvalidElementStateException, StaleElementReferenceException
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from common.log import logger
@@ -76,7 +77,7 @@ class BaseOperate:
             else:
                 raise NameError("Please Enter correct element value")
         except NoSuchElementException as msg:
-            logger.warning(msg)
+            logger.warning('[no element on the screen]', msg)
 
     def get_elements(self, by, value):
         """定位一组元素"""
@@ -140,17 +141,23 @@ class BaseOperate:
 
     def get_element_location(self, value):
         """Gets the location of an element relative to the view"""
-        location = self.get_element(value).location_in_view
-        x = location['x']
-        y = location['y']
-        return x, y
+        try:
+            location = self.get_element(value).location_in_view
+            x = location['x']
+            y = location['y']
+            return x, y
+        except AttributeError as msg:
+            raise msg
 
     def get_element_size(self, value):
         """get the size of the element"""
-        size = self.get_element(value).size
-        height = size['height']
-        width = size['width']
-        return height, width
+        try:
+            size = self.get_element(value).size
+            height = size['height']
+            width = size['width']
+            return height, width
+        except AttributeError as msg:
+            raise msg
 
     def get_element_rect(self, value):
         """
@@ -160,17 +167,33 @@ class BaseOperate:
         """
         return self.get_element(value).rect
 
+    """Swipe from one point to another point, for an optional duration.
+
+            Args:
+                start_x (int): x-coordinate at which to start
+                start_y (int): y-coordinate at which to start
+                end_x (int): x-coordinate at which to stop
+                end_y (int): y-coordinate at which to stop
+                duration (:obj:`int`, optional): time to take the swipe, in ms.
+
+            Usage:
+                driver.swipe(100, 100, 100, 400)
+
+            Returns:
+                `appium.webdriver.webelement.WebElement`
+     """
+
     def swipe_in_control(self, value, distance, direction='up'):
         """
         控件内滑动.待选择数据较多的情况下可使用
-        :param value:
-        :param distance:
+        :param value: 元素loc
+        :param distance: 滑动距离 ， 1表示滑动全屏， 2表示滑动一半， 3表示滑动1/3，以此类推
         :param direction: 滑动方向
         :return:
         """
         start_x, start_y = self.get_element_location(value)
         height_y, width_x = self.get_element_size(value)
-        # 向上滑动
+        # 屏幕向上滑动
         if direction == 'up' or direction == '1':
             point_start_x = start_x + width_x / int(distance)
             point_start_y = start_y + height_y / int(distance)
@@ -179,7 +202,7 @@ class BaseOperate:
                 point_start_y,
                 point_start_x,
                 start_y)
-        # 向下滑动
+        # 屏幕向下滑动 ，可用于刷新页面/数据
         elif direction == 'down' or direction == '2':
             point_start_x = start_x + width_x / int(distance)
             point_start_y = start_y + height_y / int(distance)
@@ -199,14 +222,18 @@ class BaseOperate:
 
     def swipe_up(self, duration=1000):
         """屏幕向上滑动"""
-        size = self.get_screen_size()
-        x1 = int(size[0] * 0.5)
-        y1 = int(size[1] * 0.75)
-        y2 = int(size[1] * 0.25)
-        self.driver.swipe(x1, y1, x1, y2, duration)
+        try:
+            size = self.get_screen_size()
+            x1 = int(size[0] * 0.5)
+            y1 = int(size[1] * 0.75)
+            y2 = int(size[1] * 0.25)
+            self.driver.swipe(x1, y1, x1, y2, duration)
+        except InvalidElementStateException as msg:
+            raise msg
 
     def click_back(self):
         self.driver.press_keycode(4)
+        time.sleep(1)
 
     def is_displayed(self, value):
         """判断元素是否在当前页面显示"""
@@ -230,7 +257,8 @@ class BaseOperate:
                 self.driver, 10).until(
                 EC.presence_of_element_located(toast_loc))
             return True
-        except BaseException:
+        except Exception as msg:
+            logger.warning(msg)
             return False
 
     def get_screen_shot(self, case_name):
@@ -244,9 +272,11 @@ class BaseOperate:
         self.driver.quit()
 
     def assert_in(self, text):
+        """断言：判断文本字符串是否存在"""
         self.assert_true(self.is_exist_current(text))
 
     def assert_not_in(self, text):
+        """断言：判断文本字符串是否不存在"""
         self.assert_false(self.is_exist_current(text))
 
     def assert_true(self, param):
@@ -294,8 +324,8 @@ class BaseOperate:
                 for key in keys1:
                     if dict1[key] == dict2[key]:
                         self.assert_true(dict1[key] == dict2[key])
-            else:
-                self.assert_false(len(keys1) != len(keys2))
+            # else:
+            #     self.assert_false(len(keys1) != len(keys2))
         except Exception as msg:
             raise msg
 
@@ -308,74 +338,67 @@ class BaseOperate:
         _year = tmp_data[0]  # 年
         _month = tmp_data[1]  # 月
         _day = tmp_data[2]  # 日
-        _number_pickers = self.get_elements(
-            'class_name', 'android.widget.NumberPicker')  # 日期控件
+        _number_pickers = self.get_elements('class_name', 'android.widget.NumberPicker')  # 日期控件
         # year
-        current_year_str = _number_pickers[0].find_element_by_id(
-            'android:id/numberpicker_input').text
-        previous_year_element = _number_pickers[0].find_element_by_xpath(
-            "//android.widget.Button[@index='0']")
-        while int(_year) != int(current_year_str):
-            if int(_year) < int(current_year_str):
-                previous_year_element.click()
-                tmp_year_str = _number_pickers[0].find_element_by_id(
-                    'android:id/numberpicker_input').text
-                if int(tmp_year_str) == int(_year):
-                    break
-                else:
+        try:
+            current_year_str = _number_pickers[0].find_element_by_id('android:id/numberpicker_input').text
+            previous_year_element = _number_pickers[0].find_element_by_xpath("//android.widget.Button[@index='0']")
+            while int(_year) != int(current_year_str):
+                if int(_year) < int(current_year_str):
                     previous_year_element.click()
+                    tmp_year_str = _number_pickers[0].find_element_by_id('android:id/numberpicker_input').text
+                    if int(tmp_year_str) == int(_year):
+                        break
+                    else:
+                        previous_year_element.click()
+        except Exception as msg:
+            logger.warning(msg)
 
         # month
-        current_month_str = _number_pickers[1].find_element_by_id(
-            'android:id/numberpicker_input').text
-        previous_month_element = _number_pickers[1].find_element_by_xpath(
-            "//android.widget.Button[@index='0']")
-        next_month_element = _number_pickers[1].find_element_by_xpath(
-            "//android.widget.Button[@index='2']")
-        while int(current_month_str) != int(_month):
-            tmp_month_str = _number_pickers[1].find_element_by_id(
-                'android:id/numberpicker_input').text
-            if int(tmp_month_str) > int(_month):
-                previous_month_element.click()
-                tmp_month_str1 = _number_pickers[1].find_element_by_id(
-                    'android:id/numberpicker_input').text
-                if int(tmp_month_str1) == int(_month):
-                    break
-                else:
+        try:
+            current_month_str = _number_pickers[1].find_element_by_id('android:id/numberpicker_input').text
+            previous_month_element = _number_pickers[1].find_element_by_xpath("//android.widget.Button[@index='0']")
+            next_month_element = _number_pickers[1].find_element_by_xpath("//android.widget.Button[@index='2']")
+            while int(current_month_str) != int(_month):
+                tmp_month_str = _number_pickers[1].find_element_by_id('android:id/numberpicker_input').text
+                if int(tmp_month_str) > int(_month):
                     previous_month_element.click()
-            else:
-                tmp_month_str2 = _number_pickers[1].find_element_by_id(
-                    'android:id/numberpicker_input').text
-                if int(tmp_month_str2) == int(_month):
-                    break
+                    tmp_month_str1 = _number_pickers[1].find_element_by_id('android:id/numberpicker_input').text
+                    if int(tmp_month_str1) == int(_month):
+                        break
+                    else:
+                        previous_month_element.click()
                 else:
-                    next_month_element.click()
+                    tmp_month_str2 = _number_pickers[1].find_element_by_id('android:id/numberpicker_input').text
+                    if int(tmp_month_str2) == int(_month):
+                        break
+                    else:
+                        next_month_element.click()
+        except Exception as msg:
+            logger.warning(msg)
 
         # day
-        current_day_str = _number_pickers[2].find_element_by_id(
-            'android:id/numberpicker_input').text
-        previous_day_element = _number_pickers[2].find_element_by_xpath(
-            "//android.widget.Button[@index='0']")
-        next_day_element = _number_pickers[2].find_element_by_xpath(
-            "//android.widget.Button[@index='2']")
-        while int(current_day_str) != int(_day):
-            tmp_day_str = _number_pickers[2].find_element_by_id(
-                'android:id/numberpicker_input').text
-            if int(tmp_day_str) > int(_day):
-                previous_day_element.click()
-                tmp_day_str1 = _number_pickers[2].find_element_by_id(
-                    'android:id/numberpicker_input').text
-                if int(tmp_day_str1) == int(_day):
-                    break
-                else:
+        try:
+            current_day_str = _number_pickers[2].find_element_by_id('android:id/numberpicker_input').text
+            previous_day_element = _number_pickers[2].find_element_by_xpath("//android.widget.Button[@index='0']")
+            next_day_element = _number_pickers[2].find_element_by_xpath("//android.widget.Button[@index='2']")
+            while int(current_day_str) != int(_day):
+                tmp_day_str = _number_pickers[2].find_element_by_id('android:id/numberpicker_input').text
+                if int(tmp_day_str) > int(_day):
                     previous_day_element.click()
-            else:
-                tmp_day_str2 = _number_pickers[2].find_element_by_id(
-                    'android:id/numberpicker_input').text
-                if int(tmp_day_str2) == int(_day):
-                    break
+                    tmp_day_str1 = _number_pickers[2].find_element_by_id('android:id/numberpicker_input').text
+                    if int(tmp_day_str1) == int(_day):
+                        break
+                    else:
+                        previous_day_element.click()
                 else:
-                    next_day_element.click()
+                    tmp_day_str2 = _number_pickers[2].find_element_by_id('android:id/numberpicker_input').text
+                    if int(tmp_day_str2) == int(_day):
+                        break
+                    else:
+                        next_day_element.click()
+        except Exception as msg:
+            logger.warning(msg)
 
     def choose_param(self, para_str, control_loc):
         """
@@ -386,7 +409,7 @@ class BaseOperate:
         """
         _tmp = "xpath>=//*[@resource-id='com.universal:id/text' and @text = '%s']" % para_str
         while True:
-            if self.is_displayed(_tmp):
+            if self.is_displayed(_tmp):  # fixme 当选择的数据未显示在当前界面上时，会出现Exception
                 self.click_element(_tmp)
                 break
             else:
@@ -399,7 +422,7 @@ class BaseOperate:
     def collect_detail_of_risk(self, hazard_name):
         """处理风险详情"""
         details = {}  # 用于存放风险详情内容
-        tmp_detail_list = []
+        tmp_detail_list = []  # 存放临时变量
         tmp_key_list = (
             '辨识时间',
             '隐患描述',
@@ -419,13 +442,13 @@ class BaseOperate:
         tmp_detail = conn.get_infos(
             sql_constants.detail_of_risk_sql(hazard_name))[0]  # 查询得到部分内容
 
-        for index in tmp_detail:
-            tmp_detail_list.append(index)
+        for _index in tmp_detail:
+            tmp_detail_list.append(_index)
 
         tmp_detail_list[0] = tmp_detail_list[0][:10]  # 处理辨识时间
 
-        for index in tmp_key_list:
-            details[index] = tmp_detail_list[tmp_key_list.index(index)]
+        for _index in tmp_key_list:
+            details[_index] = tmp_detail_list[tmp_key_list.index(_index)]
 
         # 处理伤害类别 👇，伤害类别可以是多个
         _damage_type_code = tuple(
@@ -437,12 +460,12 @@ class BaseOperate:
         for i in _tmp_damage_type:
             for _type_d in i:
                 _damage_type.append(_type_d)
-        details['伤害类别'] = self.sub_on_damage_or_accident(_damage_type)  # 将伤害类别添加到详情中  👆
+        details['伤害类别'] = self.sub_on_damage_or_accident(
+            _damage_type)  # 将伤害类别添加到详情中  👆
         # 处理事故类型 👇， 事故类型可能是多个
         _accident_type_code = tuple(conn.get_info(
             sql_constants.ye_accident_code_sql(hazard_name)).split(','))  # 事故类型代码
-        _tmp_accident_type = conn.get_infos(
-            sql_constants.ye_accident_value_sql(_accident_type_code))
+        _tmp_accident_type = conn.get_infos(sql_constants.ye_accident_value_sql(_accident_type_code))
         _accident_type = []
         for i in _tmp_accident_type:
             for _type_a in i:
@@ -457,3 +480,202 @@ class BaseOperate:
         for i in range(len(para)):
             _str = _str + ''.join(para[i]) + ','
         return _str[:-1]
+
+    def scroll_and_click_element(self, exam_date, exam_type, exam_desc, **kwargs):
+        """
+        根据指定的参数获取隐患数据.
+        :param exam_date: 日期
+        :param exam_type: 检查类型
+        :param exam_desc: 隐患描述
+        :param kwargs: 其他，比如责任单位
+        :return:
+        """
+        global _tmp_elements
+        # 先获取当前界面上所有的数据
+        if not kwargs:  # 适用于隐患录入时查看详情
+            _tmp_elements = self.get_elements('xpath', "//*[@resource-id='com.universal:id/recyclerView']/android.widget.RelativeLayout")
+        else:
+            _tmp_elements = self.get_elements('xpath', "//*[@resource-id='com.universal:id/list_view']/android.widget.RelativeLayout")
+
+        try:
+            # 循环当前界面上的数据，匹配到指定参数的数据
+            for _element in _tmp_elements:  # fixme StaleElementReferenceException
+
+                # if not kwargs:  # 适用于隐患录入时查看详情
+                #     _tmp_elements = self.get_elements('xpath', "//*[@resource-id='com.universal:id/recyclerView']/android.widget.RelativeLayout")
+                # else:
+                #     _tmp_elements = self.get_elements('xpath', "//*[@resource-id='com.universal:id/list_view']/android.widget.RelativeLayout")
+
+                _date = _element.find_element_by_id('com.universal:id/text_date').text
+                _type = _element.find_element_by_id('com.universal:id/text_check').text
+                _desc = _element.find_element_by_id('com.universal:id/text_describe').text
+                # 判断是否包含其他参数
+                if kwargs:
+                    _unit = _element.find_element_by_id('com.universal:id/text_unit').text
+                    if _date == exam_date and _type == exam_type and _desc == exam_desc and _unit == kwargs[list(kwargs)[0]]:
+                        _element.click()
+                        return
+                    # else:
+                    #     while self.is_exist_current(exam_date) and self.is_exist_current(
+                    #             exam_type) and self.is_exist_current(exam_desc) and self.is_exist_current(kwargs[list(kwargs)[0]]):
+                    #         # self.swipe_in_control("com.universal:id/view_pager", 3)
+                    #         self.swipe_up()
+                    #         _tmp_elements_after = self.get_elements(
+                    #             'xpath',
+                    #             "//*[@resource-id='com.universal:id/list_view']/android.widget.RelativeLayout")
+                    #         for _element_after in _tmp_elements_after:
+                    #             _date = _element_after.find_element_by_id('com.universal:id/text_date').text
+                    #             _type = _element_after.find_element_by_id('com.universal:id/text_check').text
+                    #             _desc = _element_after.find_element_by_id('com.universal:id/text_describe').text
+                    #             _unit = _element_after.find_element_by_id('com.universal:id/text_unit').text
+                    #             if _date == exam_date and _type == exam_type and _desc == exam_desc and _unit == kwargs[list(kwargs)[0]]:
+                    #                 _element_after.click()
+                    #                 return
+
+                if _date == exam_date and _type == exam_type and _desc == exam_desc:
+                    _element.click()
+                    break
+                # else:
+                #     while self.is_exist_current(exam_date) and self.is_exist_current(exam_type) and self.is_exist_current(exam_desc):
+                #         # self.swipe_in_control("com.universal:id/list_view", 2)
+                #         self.swipe_up()
+                #         _tmp_elements_after = self.get_elements(
+                #             'xpath',
+                #             "//*[@resource-id='com.universal:id/recyclerView']/android.widget.RelativeLayout")
+                #         for _element_after in _tmp_elements_after:
+                #             _date = _element_after.find_element_by_id('com.universal:id/text_date').text
+                #             _type = _element_after.find_element_by_id('com.universal:id/text_check').text
+                #             _desc = _element_after.find_element_by_id('com.universal:id/text_describe').text
+                #             if _date == exam_date and _type == exam_type and _desc == exam_desc:
+                #                 _element_after.click()
+                #                 break
+        except StaleElementReferenceException as msg:
+            logger.warning(msg)
+
+    CONTROL_LOC = "class>=android.widget.LinearLayout"  # 弹窗
+
+    def choose_attr_value(self, attr, attr_value):
+        """选择属性参数"""
+        self.click_element(attr)
+        self.choose_param(attr_value, self.CONTROL_LOC)
+
+    def collect_detail_of_hidden(self):
+        """获取隐患详情内容"""
+        global _key_content
+        detail_dic = {}  # 用于存放详情内容
+        # key-value loc
+        _xpath_loc = "//*[@class = 'android.widget.ScrollView']/android.widget.LinearLayout/android.widget.LinearLayout"
+        _key_loc = "//android.widget.TextView[@index='0']"  # 属性字段loc
+        _value_loc = "//android.widget.TextView[@index='1']"  # 属性值loc
+
+        _elements = self.get_elements('xpath', _xpath_loc)  # 查找三违详情相关的key和value
+
+        # pattern = r'[\t\t]'
+        # import re
+        for _element in _elements:
+            if _element.find_element_by_xpath(_key_loc).text != '复查人':  # 隐患类型为现场处理时，不需要截取字符串
+                _key_content = _element.find_element_by_xpath(_key_loc).text[:-1].replace('\t', '')
+            else:
+                _key_content = _element.find_element_by_xpath(_key_loc).text
+            if '隐患处理' == _key_content:  # 去掉 ‘隐患处理’
+                continue
+            # _value_content = _element.find_element_by_xpath(_value_loc).text
+            detail_dic[_key_content] = _element.find_element_by_xpath(_value_loc).text
+
+        self.swipe_up()  # 滑动屏幕获取剩下的参数 👇
+        _elements = self.get_elements('xpath', _xpath_loc)  # 查找三违详情相关的key和value
+        for _element in _elements:
+            if _element.find_element_by_xpath(_key_loc).text != '复查人':
+                _key_content = _element.find_element_by_xpath(_key_loc).text[:-1].replace('\t', '')
+            else:
+                _key_content = _element.find_element_by_xpath(_key_loc).text
+            if '隐患处理' == _key_content:
+                continue
+            # _value_content = _element.find_element_by_xpath(_value_loc).text
+            detail_dic[_key_content] = _element.find_element_by_xpath(_value_loc).text
+
+        return detail_dic
+
+    def collect_detail_of_hidden_from_db(self, exam_date, exam_type, exam_desc, **kwargs):
+        """数据库中隐患详情"""
+        details = {}  # 用于存放风险详情内容
+        tmp_detail_list = []  # 存放临时变量
+        tmp_limit_key_list = (
+            '检查类型',
+            '检查时间',
+            '班次',
+            '地点',
+            '检查人',
+            '责任单位',
+            '责任人',
+            '隐患类别',
+            '隐患等级',
+            '隐患类型',
+            '限期日期',
+            '问题描述')
+        tmp_current_key_list = (
+            '检查类型',
+            '检查时间',
+            '班次',
+            '地点',
+            '检查人',
+            '责任单位',
+            '责任人',
+            '隐患类别',
+            '隐患等级',
+            '隐患类型',
+            '复查人',
+            '问题描述')
+
+        from data import sql_constants
+        if not kwargs:
+            _tmp_deal_type = conn.get_info(sql_constants.get_deal_type(exam_desc, exam_type, exam_date))
+            tmp_detail = conn.get_infos(sql_constants.detail_of_hidden(exam_desc, exam_type, exam_date))[0]  # 通过查询得到详情内容
+        else:
+            _tmp_deal_type = conn.get_info(sql_constants.get_deal_type(
+                hidden_desc=exam_desc, exam_type=exam_type, exam_date=exam_date, kwargs=kwargs[list(kwargs)[0]]))
+            tmp_detail = conn.get_infos(sql_constants.detail_of_hidden(
+                hidden_desc=exam_desc, exam_type=exam_type, exam_date=exam_date, kwargs=kwargs[list(kwargs)[0]]))[0]  # 通过查询得到详情内容
+        for _detail in tmp_detail:
+            tmp_detail_list.append(_detail)
+
+        if _tmp_deal_type == '1':
+            """处理限期整改的隐患"""
+            tmp_detail_list[1] = tmp_detail_list[1][:10]  # 处理检查时间, 截取年月日
+            tmp_detail_list[-2] = tmp_detail_list[-2][:10]  # 处理限期日期, 截取年月日
+            for _key in tmp_limit_key_list:
+                details[_key] = tmp_detail_list[tmp_limit_key_list.index(_key)]
+
+        if _tmp_deal_type == '2':
+            """处理现场整改的隐患"""
+            tmp_detail_list[1] = tmp_detail_list[1][:10]  # 处理检查时间, 截取年月日
+            for _index in tmp_current_key_list:  # 将数据保存到details中
+                details[_index] = tmp_detail_list[tmp_current_key_list.index(
+                    _index)]
+
+        return details
+
+    def get_paras_of_hidden(self, tag='2'):
+        """获取隐患时间/检查类型/隐患描述/责任单位字段值"""
+        global tmp_elements
+        if tag == '2':
+            tmp_elements = self.get_elements('xpath', "//*[@resource-id='com.universal:id/list_view']/android.widget.RelativeLayout")
+            if len(tmp_elements) > 0:
+                _index = random.randint(0, len(tmp_elements) - 1)
+                _date = tmp_elements[_index].find_element_by_id('com.universal:id/text_date').text
+                _type = tmp_elements[_index].find_element_by_id('com.universal:id/text_check').text
+                _desc = tmp_elements[_index].find_element_by_id('com.universal:id/text_describe').text
+                _unit = tmp_elements[_index].find_element_by_id('com.universal:id/text_unit').text
+                return _date, _type, _desc, _unit
+            else:
+                logger.warning('no hidden data')
+        else:
+            tmp_elements = self.get_elements('xpath', "//*[@resource-id='com.universal:id/recyclerView']/android.widget.RelativeLayout")
+            if len(tmp_elements) > 0:
+                _index = random.randint(0, len(tmp_elements) - 1)
+                _date = tmp_elements[_index].find_element_by_id('com.universal:id/text_date').text
+                _type = tmp_elements[_index].find_element_by_id('com.universal:id/text_check').text
+                _desc = tmp_elements[_index].find_element_by_id('com.universal:id/text_describe').text
+                return _date, _type, _desc
+            else:
+                logger.warning('no hidden data')
