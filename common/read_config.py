@@ -4,7 +4,7 @@ version: 1.0
 author:
 file name: read_config.py
 date: 2019/11/25 13:04
-Desc:
+Desc:读取配置文件
 """
 import codecs
 import configparser
