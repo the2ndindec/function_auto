@@ -7,10 +7,12 @@ date: 2019/11/25 13:49
 Desc:封装元素的基本操作
 """
 import inspect
+import re
 import time
 import random
 
 import allure
+from faker import Faker
 from selenium.common.exceptions import NoSuchElementException, InvalidElementStateException, StaleElementReferenceException
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -83,8 +85,7 @@ class BaseOperate:
         """定位一组元素"""
         try:
             if by == "id":
-                WebDriverWait(self.driver, self.timeout_time).until(
-                    lambda driver: driver.find_element_by_id(value).is_displayed())
+                WebDriverWait(self.driver, self.timeout_time).until(lambda driver: driver.find_element_by_id(value).is_displayed())
                 self.driver.implicitly_wait(self.wait_time)
                 elements = self.driver.find_elements_by_id(value)
                 return elements
@@ -115,8 +116,9 @@ class BaseOperate:
                 return elements
             else:
                 raise NameError("Please Enter correct elements value")
-        except BaseException:
-            logger.warning("not find element")
+        except Exception as msg:
+            logger.warning("not find element！", msg)
+            return None
 
     def click_element(self, value):
         """封装点击操作"""
@@ -418,9 +420,8 @@ class BaseOperate:
                     self.click_element(_tmp)
                     break
 
-    # @staticmethod
     def collect_detail_of_risk(self, hazard_name):
-        """处理风险详情"""
+        """数据库中风险详情"""
         details = {}  # 用于存放风险详情内容
         tmp_detail_list = []  # 存放临时变量
         tmp_key_list = (
@@ -438,9 +439,8 @@ class BaseOperate:
             '管控措施',
             '责任岗位',
             '罚款金额')
-        from data import sql_constants
-        tmp_detail = conn.get_infos(
-            sql_constants.detail_of_risk_sql(hazard_name))[0]  # 查询得到部分内容
+        from config import sql_constants
+        tmp_detail = conn.get_infos(sql_constants.detail_of_risk_sql(hazard_name))[0]  # 查询得到部分内容
 
         for _index in tmp_detail:
             tmp_detail_list.append(_index)
@@ -451,27 +451,32 @@ class BaseOperate:
             details[_index] = tmp_detail_list[tmp_key_list.index(_index)]
 
         # 处理伤害类别 👇，伤害类别可以是多个
-        _damage_type_code = tuple(
-            conn.get_info(
-                sql_constants.damage_type_code_sql(hazard_name)).split(','))  # 伤害类别代码
-        _tmp_damage_type = conn.get_infos(
-            sql_constants.damage_type_value_sql(_damage_type_code))
+        _damage_type_code = tuple(conn.get_info(sql_constants.damage_type_code_sql(hazard_name)).split(','))  # 伤害类别代码
+        _tmp_damage_type = conn.get_infos(sql_constants.damage_type_value_sql(_damage_type_code))
         _damage_type = []  # 伤害类别
         for i in _tmp_damage_type:
             for _type_d in i:
                 _damage_type.append(_type_d)
-        details['伤害类别'] = self.sub_on_damage_or_accident(
-            _damage_type)  # 将伤害类别添加到详情中  👆
-        # 处理事故类型 👇， 事故类型可能是多个
-        _accident_type_code = tuple(conn.get_info(
-            sql_constants.ye_accident_code_sql(hazard_name)).split(','))  # 事故类型代码
-        _tmp_accident_type = conn.get_infos(sql_constants.ye_accident_value_sql(_accident_type_code))
-        _accident_type = []
-        for i in _tmp_accident_type:
-            for _type_a in i:
-                _accident_type.append(_type_a)
+        details['伤害类别'] = self.sub_on_damage_or_accident(_damage_type)  # 将伤害类别添加到详情中  👆
+        # 处理事故类型 👇， 事故类型可能是多个，也可能为空
+        global _accident_type  # update on 12/06
+        tmp_accident_type = conn.get_info(sql_constants.ye_accident_code_sql(hazard_name))
+        if tmp_accident_type:
+            _accident_type_code = tuple(tmp_accident_type.split(','))  # 事故类型代码
+            _tmp_accident_type = conn.get_infos(sql_constants.ye_accident_value_sql(_accident_type_code))
+            _accident_type = []
+            for i in _tmp_accident_type:
+                for _type_a in i:
+                    _accident_type.append(_type_a)
+        else:
+            _accident_type = ''
         details['事故类型'] = self.sub_on_damage_or_accident(_accident_type)  # 将事故类型添加到详情中 👆
-        details['隐患等级'] = conn.get_info(sql_constants.risk_level_value_sql(hazard_name))  # 添加隐患等级
+        # 添加隐患等级
+        tmp_level = conn.query(sql_constants.risk_level_value_sql(hazard_name), fetchone=True)
+        if tmp_level:
+            details['隐患等级'] = tmp_level
+        else:
+            details['隐患等级'] = ''
         return details
 
     def sub_on_damage_or_accident(self, para):
@@ -483,7 +488,7 @@ class BaseOperate:
 
     def scroll_and_click_element(self, exam_date, exam_type, exam_desc, **kwargs):
         """
-        根据指定的参数获取隐患数据.
+        根据指定的参数获取隐患数据. 以下参数通过get_paras_of_hidden方法获取，避免脚本出现问题。
         :param exam_date: 日期
         :param exam_type: 检查类型
         :param exam_desc: 隐患描述
@@ -499,7 +504,7 @@ class BaseOperate:
 
         try:
             # 循环当前界面上的数据，匹配到指定参数的数据
-            for _element in _tmp_elements:  # fixme StaleElementReferenceException
+            for _element in _tmp_elements:  # fixme 滑动屏幕会导致StaleElementReferenceException
 
                 # if not kwargs:  # 适用于隐患录入时查看详情
                 #     _tmp_elements = self.get_elements('xpath', "//*[@resource-id='com.universal:id/recyclerView']/android.widget.RelativeLayout")
@@ -597,7 +602,14 @@ class BaseOperate:
         return detail_dic
 
     def collect_detail_of_hidden_from_db(self, exam_date, exam_type, exam_desc, **kwargs):
-        """数据库中隐患详情"""
+        """
+        数据库中隐患详情,根据指定的参数获取对用隐患详情
+        :param exam_date: 检查时间
+        :param exam_type: 隐患类型
+        :param exam_desc: 隐患描述
+        :param kwargs: 其他参数，比如责任单位/检查人。可为空
+        :return:
+        """
         details = {}  # 用于存放风险详情内容
         tmp_detail_list = []  # 存放临时变量
         tmp_limit_key_list = (
@@ -627,14 +639,14 @@ class BaseOperate:
             '复查人',
             '问题描述')
 
-        from data import sql_constants
+        from config import sql_constants
         if not kwargs:
-            _tmp_deal_type = conn.get_info(sql_constants.get_deal_type(exam_desc, exam_type, exam_date))
-            tmp_detail = conn.get_infos(sql_constants.detail_of_hidden(exam_desc, exam_type, exam_date))[0]  # 通过查询得到详情内容
+            _tmp_deal_type = conn.get_info(sql_constants.get_deal_type_sql(exam_desc, exam_type, exam_date))
+            tmp_detail = conn.get_infos(sql_constants.detail_of_hidden_sql(exam_desc, exam_type, exam_date))[0]  # 通过查询得到详情内容
         else:
-            _tmp_deal_type = conn.get_info(sql_constants.get_deal_type(
+            _tmp_deal_type = conn.get_info(sql_constants.get_deal_type_sql(
                 hidden_desc=exam_desc, exam_type=exam_type, exam_date=exam_date, kwargs=kwargs[list(kwargs)[0]]))
-            tmp_detail = conn.get_infos(sql_constants.detail_of_hidden(
+            tmp_detail = conn.get_infos(sql_constants.detail_of_hidden_sql(
                 hidden_desc=exam_desc, exam_type=exam_type, exam_date=exam_date, kwargs=kwargs[list(kwargs)[0]]))[0]  # 通过查询得到详情内容
         for _detail in tmp_detail:
             tmp_detail_list.append(_detail)
@@ -655,8 +667,11 @@ class BaseOperate:
 
         return details
 
-    def get_paras_of_hidden(self, tag='2'):
-        """获取隐患时间/检查类型/隐患描述/责任单位字段值"""
+    def get_params_of_hidden(self, tag='2'):
+        """获取隐患时间/检查类型/隐患描述/责任单位字段值
+            1表示不获取unit的值，可在隐患录入时使用
+            2表示获取unit的值
+        """
         global tmp_elements
         if tag == '2':
             tmp_elements = self.get_elements('xpath', "//*[@resource-id='com.universal:id/list_view']/android.widget.RelativeLayout")
@@ -668,7 +683,7 @@ class BaseOperate:
                 _unit = tmp_elements[_index].find_element_by_id('com.universal:id/text_unit').text
                 return _date, _type, _desc, _unit
             else:
-                logger.warning('no hidden data')
+                logger.warning('no hidden config')
         else:
             tmp_elements = self.get_elements('xpath', "//*[@resource-id='com.universal:id/recyclerView']/android.widget.RelativeLayout")
             if len(tmp_elements) > 0:
@@ -678,4 +693,30 @@ class BaseOperate:
                 _desc = tmp_elements[_index].find_element_by_id('com.universal:id/text_describe').text
                 return _date, _type, _desc
             else:
-                logger.warning('no hidden data')
+                logger.warning('no hidden config')
+
+    def text_zh(self, chars_length=None):
+        """
+        使用faker伪造指定长度的字符串
+        :param chars_length: 字串长度
+        :return:
+        """
+        fake = Faker('zh_CN')
+        if chars_length is not None:
+            _s = fake.text().replace('\n', '')
+            while len(_s) != chars_length:
+                _s = _s + fake.text().replace('\n', '')
+                if len(_s) > chars_length:
+                    break
+            return _s[:chars_length]
+        else:
+            return fake.text()
+
+    def collect_address_name(self):
+        address_names = []
+        vio_tmp_elements = self.driver.get_elements(by='xpath', value="//*[@resource-id='com.universal:id/recyclerView']/android.widget.LinearLayout")
+        for element in vio_tmp_elements:
+            pattern = r'[【|】]'
+            _tmp_str = re.split(pattern, element.find_element_by_id('com.universal:id/text_risk_point_name').text)[1]  # 👈获取危险源名称
+            address_names.append(_tmp_str)
+        return address_names

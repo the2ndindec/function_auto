@@ -198,3 +198,6 @@ dmypy.json
 /report/html/*
 /report/xml/*
 /screenshots/*
+allure-report/
+examm.py
+screenshots/*

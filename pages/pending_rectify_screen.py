@@ -13,7 +13,7 @@ from pages.base_page import BasePage
 
 
 class PendingRectifyScreen(BasePage):
-    readeConfigObj = read_config.ReadConfig("\\data\\base_xpath.ini")
+    readeConfigObj = read_config.ReadConfig("\\config\\base_xpath.ini")
     rectified_tab = readeConfigObj.get_config('rectify', 'rectified_tab')  # 已整改
     un_rectify_tab = readeConfigObj.get_config('rectify', 'un_rectify_tab')  # 待整改
     rectifing_tab = readeConfigObj.get_config('rectify', 'rectifing_tab')  # 通过·不通过
