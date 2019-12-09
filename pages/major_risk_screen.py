@@ -6,31 +6,42 @@ file name: major_risk_screen.py
 date: 2019/11/27 10:07
 Desc: 重大风险清单
 """
+import time
+
 from common import read_config
 from pages.base_page import BasePage
 
 
 class MajorRiskScreen(BasePage):
-    readeConfigObj = read_config.ReadConfig("\\data\\base_xpath.ini")
+    readeConfigObj = read_config.ReadConfig("\\config\\base_xpath.ini")
     riskPoint = readeConfigObj.get_config('major', 'riskPoint')  # 关联风险点标签
-    risk_point_text = readeConfigObj.get_config('major', 'risk_point_text')  # 风险点名称字段
+    risk_point_text = readeConfigObj.get_config('major', 'risk_point_text')  # 弹窗中风险点名称字段
     riskManage = readeConfigObj.get_config('major', 'riskManage')  # 管控措施标签
     risk_source_name = readeConfigObj.get_config('major', 'risk_source_name')  # 危险源名称
     risk_manage_group = readeConfigObj.get_config('major', 'risk_manage_group')
 
     def click_module(self, module_loc, hazard_name_str):
         """点击指定危险源相对应的标签"""
-        _xpath_loc = "xpath>=//android.widget.LinearLayout[@index='%d']" % (self.get_serial_of_danger(hazard_name_str))
-        element = self.driver.get_element(_xpath_loc)
-        element.find_element_by_id(module_loc).click()
+        time.sleep(1)
+        try:
+            _index = self.get_serial_of_danger(hazard_name_str)
+            _xpath_loc = "xpath>=//android.widget.LinearLayout[@index='%d']" % (int(_index))
+            element = self.driver.get_element(_xpath_loc)
+            element.find_element_by_id(module_loc).click()
+        except TypeError as msg:
+            raise msg
 
     def collect_risk_point_on_hazard(self):
         """获取危险源关联的风险点"""
+        # fixme 关联数据为空
         _risk_points = self.driver.get_elements('id', self.risk_point_text)
         risk_point_list = []
-        for element in _risk_points:
-            risk_point_list.append(element.text)
-        return risk_point_list
+        if _risk_points:
+            for element in _risk_points:
+                risk_point_list.append(element.text)
+            return risk_point_list
+        else:
+            return risk_point_list
 
     def get_serial_of_danger(self, hazard_name_str):
         """获取指定危险源所在行的序列号"""
