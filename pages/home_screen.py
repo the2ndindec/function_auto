@@ -12,7 +12,7 @@ from pages.base_page import BasePage
 
 class HomeScreen(BasePage):
 
-    read_ConfigObj = read_config.ReadConfig("\\data\\base_xpath.ini")
+    read_ConfigObj = read_config.ReadConfig("\\config\\base_xpath.ini")
 
     # 重大风险清单
     major_risk = read_ConfigObj.get_config('home', 'major_risk')

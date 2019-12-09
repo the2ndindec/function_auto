@@ -13,7 +13,7 @@ from pages.base_page import BasePage
 
 
 class AddressScreen(BasePage):
-    readeConfigObj = read_config.ReadConfig("\\data\\base_xpath.ini")
+    readeConfigObj = read_config.ReadConfig("\\config\\base_xpath.ini")
     address_point_name = readeConfigObj.get_config('riskPoint', 'risk_point_name')  # 风险点名称
     hazard_on_address = readeConfigObj.get_config('riskPoint', 'source_on_risk')  # 风险点关联危险源标签
     risk_on_address = readeConfigObj.get_config('riskPoint', 'risk_name')  # 风险点关联风险标签
@@ -25,6 +25,7 @@ class AddressScreen(BasePage):
         """获取风险点的序号"""
         # 获取所有行的数据 👇
         _tmp_elements = self.driver.get_elements('xpath', "//*[@resource-id='com.universal:id/recyclerView']/android.widget.LinearLayout")
+
         for _element in _tmp_elements:
             pattern = r'[【|】]'
             _tmp_str = re.split(pattern, _element.find_element_by_id('com.universal:id/text_risk_point_name').text)[1]  # 👈获取危险源名称
@@ -34,6 +35,7 @@ class AddressScreen(BasePage):
 
     def click_module(self, module_loc, address_name_str):
         """点击指定风险点相对应的标签"""
+        # fixme address不在当前界面
         _xpath_loc = "xpath>=//*[@resource-id='com.universal:id/recyclerView']/android.widget.LinearLayout[@index='%d']" \
                      % (self.get_serial_of_address(address_name_str))
         _element = self.driver.get_element(_xpath_loc)

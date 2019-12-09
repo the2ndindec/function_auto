@@ -13,7 +13,7 @@ from pages.base_page import BasePage
 
 
 class LoginScreen(BasePage):
-    readeConfigObj = read_config.ReadConfig("\\data\\base_xpath.ini")
+    readeConfigObj = read_config.ReadConfig("\\config\\base_xpath.ini")
     # loginCenterBtn = readeConfigObj.get_config('login', 'loginCenter_btn')
     usernameText = readeConfigObj.get_config('login', 'username_text')
     passwordText = readeConfigObj.get_config('login', 'password_text')

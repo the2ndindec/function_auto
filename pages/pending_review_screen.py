@@ -13,7 +13,7 @@ from pages.base_page import BasePage
 
 
 class PendingReviewScreen(BasePage):
-    readeConfigObj = read_config.ReadConfig("\\data\\base_xpath.ini")
+    readeConfigObj = read_config.ReadConfig("\\config\\base_xpath.ini")
     reviewed_tab = readeConfigObj.get_config('review', 'reviewed_tab')  # 已复查标签
     un_review_tab = readeConfigObj.get_config('review', 'un_review_tab')  # 待复查标签
     reviewing_tab = readeConfigObj.get_config('review', 'reviewing_tab')  # 通过·不通过标签
