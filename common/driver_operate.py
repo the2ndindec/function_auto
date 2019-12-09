@@ -8,9 +8,14 @@ Desc: driver配置
 """
 from appium import webdriver
 
+from common import read_config
+
 
 class DriverConfig:
     """初始化driver"""
+
+    readeConfigObj = read_config.ReadConfig(r"\config\server_config.ini")
+
     def __new__(cls, *args, **kwargs):
         """使用单例模式将类型设置为运行时只有一个实例"""
         try:
@@ -18,14 +23,14 @@ class DriverConfig:
             if not hasattr(cls, '_instance'):
                 orig = super(DriverConfig, cls)
                 desired_caps = {
-                    'platformName': 'Android',  # 平台
-                    'platformVersion': '7.1',   # 系统版本
-                    'appPackage': 'com.universal',  # APK包名
-                    'appActivity': '.activity.SplashActivity',  # 被测程序启动时的Activity
-                    'unicodeKeyboard': 'true',  # 是否支持unicode的键盘。如果需要输入中文，要设置为“true”
+                    'platformName': cls.readeConfigObj.get_config('desired_caps', 'platformName'),  # 平台 'Android'
+                    'platformVersion': cls.readeConfigObj.get_config('desired_caps', 'platformVersion'),   # 系统版本
+                    'appPackage': cls.readeConfigObj.get_config('desired_caps', 'appPackage'),  # APK包名 'com.universal'
+                    'appActivity': cls.readeConfigObj.get_config('desired_caps', 'appActivity'),  # 被测程序启动时的Activity '.activity.SplashActivity'
+                    'unicodeKeyboard': 'true',  # 使用unicodeKeyboard的编码方式来发送字符串。是否支持unicode的键盘。如果需要输入中文，要设置为“true”
                     'resetKeyboard': 'true',    # 是否在测试结束后将键盘重置为系统默认的输入法。
-                    'newCommandTimeout': '120',  # Appium服务器待appium客户端发送新消息的时间。默认为60秒
-                    'deviceName': '333a0a4a',   # 手机ID
+                    'newCommandTimeout': '120',  # Appium服务器等待appium客户端发送新消息的时间。默认为60秒。设置的时间内无请求，则关闭客户端（退出app）
+                    'deviceName': cls.readeConfigObj.get_config('desired_caps', 'deviceName'),   # 手机ID '333a0a4a'
                     'noReset': True,  # true:不重新安装APP，false:重新安装app.每次启动APP不清除之前的状态
                     'automationName': 'Uiautomator2'    # 用于获取toast
                 }
@@ -33,7 +38,7 @@ class DriverConfig:
                 # 指向.apk文件，如果设置appPackage和appActivity，那么这项会被忽略
 
                 cls._instance = orig.__new__(cls)
-                cls._instance.driver = webdriver.Remote("http://127.0.0.1:4723/wd/hub", desired_caps)
+                cls._instance.driver = webdriver.Remote(cls.readeConfigObj.get_config('driver', 'driverIp'), desired_caps)
             return cls._instance
         except Exception as msg:
             raise msg
