@@ -9,18 +9,18 @@
 ~~~
 server_config.ini文件-----------------------------------
 [desired_caps]
-platformName='Android'
-deviceName='333a0a4a'
-platformVersion='7.1'
-appPackage='com.universal'
-appActivity='.activity.SplashActivity'
+platformName=Android
+deviceName=333a0a4a
+platformVersion=7.1
+appPackage=com.universal
+appActivity=.activity.SplashActivity
 [driver]
-driverIp='http://127.0.0.1:4723/wd/hub'  #appium服务地址
+driverIp=http://127.0.0.1:4723/wd/hub  #appium服务地址
 [server]
-server='192.168.3.200:8080/sdzk'  #程序运行地址
+server=地址  #程序运行地址
 db.ini文件----------------------------------------------
 [db]
-db_host=192.168.3.200
+db_host=数据库地址
 db_post=3306
 db_user=root
 db_password=admin
