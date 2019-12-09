@@ -27,5 +27,4 @@ db_password=admin
 db_datatable=sdzk-mine
 ~~~
 👉 运行时需确认手机已连接，appium服务已开启
-* 脚本中涉及到的参数可先配置在./config/param.xlsx中。hidden 页配置隐患相关参数信息，vio页配置三违相关参数信息
-👉 确保参数存在系统中
+* 脚本中涉及到的参数可先配置在./config/param.xlsx中。
