@@ -16,7 +16,7 @@ conn = ConnMysql()
 
 
 class HiddenDangerScreen(BasePage):
-    readeConfigObj = read_config.ReadConfig("\\data\\base_xpath.ini")
+    readeConfigObj = read_config.ReadConfig(r"\config\base_xpath.ini")
     uploaded_tab = readeConfigObj.get_config('hiddenDanger', 'uploaded_tab')
     exam_type = readeConfigObj.get_config('hiddenDanger', 'exam_type')
     exam_date = readeConfigObj.get_config('hiddenDanger', 'exam_date')
@@ -43,11 +43,6 @@ class HiddenDangerScreen(BasePage):
 
     """！！！检查类型为上级检查时，检查人需要手动输入"""
 
-    # def choose_attr_value(self, attr, attr_value):
-    #     """选择属性参数"""
-    #     self.driver.click_element(attr)
-    #     self.driver.choose_param(attr_value, self.CONTROL_LOC)
-
     def choose_vio_date(self, exam_date_str):
         """选择检查时间"""
         with allure.step('选择检查时间：' + exam_date_str):
@@ -61,92 +56,30 @@ class HiddenDangerScreen(BasePage):
         self.driver.input_text(self.problem_desc_area, hidden_desc_str)
         self.driver.click_element(self.submit_btn_area)
 
+    def type_exam_check_man(self, check_man_str):
+        """录入检查人"""
+        self.driver.click_element(self.exam_check_man)
+        self.driver.input_text(self.problem_desc_area, check_man_str)
+        self.driver.click_element(self.submit_btn_area)
+
     def choose_deal_type(self, type_str, **kwargs):
         """隐患处理方式"""
         self.driver.swipe_up()  # 滑动界面
-        if type_str == 'limit' or type_str == 'xq':
-            # if 'limit_date_str' in kwargs:
-            if kwargs:  # 判断是否包含其他参数
+        if type_str == 'limit' or type_str == 'xq':  # 限期整改
+            if kwargs:  # 选择限定时间
                 self.driver.click_element(self.limit_date)
                 self.driver.deal_date_piker(kwargs[list(kwargs)[0]])
                 self.driver.click_element(self.submit_btn_area)
             else:
                 raise ValueError('未指定期限时间')
-        elif type_str == 'current' or type_str == 'xc':
+        elif type_str == 'current' or type_str == 'xc':  # 现场整改
             self.driver.click_element(self.deal_type_current)
-            # if 'review_man_str' in kwargs:
-            if kwargs:  # 判断是否包含其他参数
+            if kwargs:  # 选择复查人
                 self.driver.choose_attr_value(self.review_man, kwargs[list(kwargs)[0]])
             else:
-                raise ValueError('未指定负责人')
+                raise ValueError('未指定复查人')
         else:
             raise ValueError("参数‘type_str’错误：", type_str)
-
-    # def collect_detail_of_hidden(self):
-    #     """获取隐患详情内容"""
-    #     global _key_content
-    #     detail_dic = {}  # 用于存放详情内容
-    #     _xpath_loc = "//*[@class = 'android.widget.ScrollView']/android.widget.LinearLayout/android.widget.LinearLayout"  # key-value loc
-    #     _key_loc = "//android.widget.TextView[@index='0']"  # 属性字段loc
-    #     _value_loc = "//android.widget.TextView[@index='1']"  # 属性值loc
-    #
-    #     _elements = self.driver.get_elements('xpath', _xpath_loc)  # 查找三违详情相关的key和value
-    #
-    #     # pattern = r'[\t\t]'
-    #     # import re
-    #     for _element in _elements:
-    #         if _element.find_element_by_xpath(_key_loc).text != '复查人':  # 隐患类型为现场处理时，不需要截取字符串
-    #             _key_content = _element.find_element_by_xpath(_key_loc).text[:-1].replace('\t', '')
-    #         else:
-    #             _key_content = _element.find_element_by_xpath(_key_loc).text
-    #         if '隐患处理' == _key_content:  # 去掉 ‘隐患处理’
-    #             continue
-    #
-    #         _value_content = _element.find_element_by_xpath(_value_loc).text
-    #         detail_dic[_key_content] = _value_content
-    #
-    #     self.driver.swipe_up()  # 滑动屏幕获取剩下的参数 👇
-    #     _elements = self.driver.get_elements('xpath', _xpath_loc)  # 查找三违详情相关的key和value
-    #     for _element in _elements:
-    #         if _element.find_element_by_xpath(_key_loc).text != '复查人':
-    #             _key_content = _element.find_element_by_xpath(_key_loc).text[:-1].replace('\t', '')
-    #         else:
-    #             _key_content = _element.find_element_by_xpath(_key_loc).text
-    #         if '隐患处理' == _key_content:
-    #             continue
-    #         _value_content = _element.find_element_by_xpath(_value_loc).text
-    #         detail_dic[_key_content] = _value_content
-    #
-    #     return detail_dic
-
-    # def collect_detail_of_hidden_from_db(self, exam_date, exam_type, exam_desc, **kwargs):
-    #     """数据库中隐患详情"""
-    #     details = {}  # 用于存放风险详情内容
-    #     tmp_detail_list = []  # 存放临时变量
-    #     tmp_limit_key_list = ('检查类型', '检查时间', '班次', '地点', '检查人', '责任单位', '责任人', '隐患类别', '隐患等级', '隐患类型', '限期日期', '问题描述')
-    #     tmp_current_key_list = ('检查类型', '检查时间', '班次', '地点', '检查人', '责任单位', '责任人', '隐患类别', '隐患等级', '隐患类型', '复查人', '问题描述')
-    #
-    #     from data import sql_constants
-    #     _tmp_deal_type = conn.get_info(sql_constants.get_deal_type(exam_desc, exam_type, exam_date))
-    #     tmp_detail = conn.get_infos(sql_constants.detail_of_hidden(exam_desc, exam_type, exam_date))[0]  # 通过查询得到详情内容
-    #
-    #     for _detail in tmp_detail:
-    #         tmp_detail_list.append(_detail)
-    #
-    #     if _tmp_deal_type == '1':
-    #         """处理限期整改的隐患"""
-    #         tmp_detail_list[1] = tmp_detail_list[1][:10]  # 处理检查时间, 截取年月日
-    #         tmp_detail_list[-2] = tmp_detail_list[-2][:10]  # 处理限期日期, 截取年月日
-    #         for _key in tmp_limit_key_list:
-    #             details[_key] = tmp_detail_list[tmp_limit_key_list.index(_key)]
-    #
-    #     if _tmp_deal_type == '2':
-    #         """处理现场整改的隐患"""
-    #         tmp_detail_list[1] = tmp_detail_list[1][:10]  # 处理检查时间, 截取年月日
-    #         for _index in tmp_current_key_list:  # 将数据保存到details中
-    #             details[_index] = tmp_detail_list[tmp_current_key_list.index(_index)]
-    #
-    #     return details
 
 
 if __name__ == '__main__':
