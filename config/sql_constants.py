@@ -96,8 +96,15 @@ def risk_on_address(address):
            "WHERE a.address = '{}'".format(address.strip())
 
 
-def detail_of_vio(vio_date, vio_address, vio_unit, vio_desc):
-    """三违详情查询"""
+def detail_of_vio_sql(vio_date, vio_address, vio_unit, vio_desc):
+    """
+    三违详情查询sql
+    :param vio_date: 三违时间
+    :param vio_address: 三违地点
+    :param vio_unit: 违章单位
+    :param vio_desc: 三违描述内容
+    :return:
+    """
     return """SELECT CAST(three.vio_date as CHAR) AS 违章时间,address.address AS 违章地点,three.vio_people AS 违章人员,qualitative.typename AS 违章定性,
     three.stop_people AS 制止人,tsd.departname AS 违章单位,category.typename AS 违章分类,level1.typename AS 三违级别,tsd1.departname AS 查处单位,
     three.vio_fact_desc AS 三违事实描述,three.remark AS 备注 FROM t_b_three_violations three INNER JOIN t_b_address_info address ON address.id = three.vio_address 
@@ -110,16 +117,23 @@ def detail_of_vio(vio_date, vio_address, vio_unit, vio_desc):
         .format(**{"_date": vio_date, "_address": vio_address, '_unit': vio_unit, '_desc': vio_desc})
 
 
-def detail_of_hidden(hidden_desc, exam_type, exam_date, **kwargs):
-    """隐患录入已上报隐患详情"""
+def detail_of_hidden_sql(hidden_desc, exam_type, exam_date, **kwargs):
+    """
+    隐患详情查询sql
+    :param hidden_desc: 隐患描述内容
+    :param exam_type: 检查类型
+    :param exam_date: 检查时间
+    :param kwargs: 其他参数，比如责任单位/检查人。可为空
+    :return:
+    """
 
     global _kw_not_none, _kw_none
     from common.mysql_operation import ConnMysql
     # 先获取隐患整改方式
     if not kwargs:
-        deal_type = ConnMysql().get_info(get_deal_type(hidden_desc=hidden_desc, exam_type=exam_type, exam_date=exam_date))
+        deal_type = ConnMysql().get_info(get_deal_type_sql(hidden_desc=hidden_desc, exam_type=exam_type, exam_date=exam_date))
     else:
-        deal_type = ConnMysql().get_info(get_deal_type(hidden_desc=hidden_desc, exam_type=exam_type, exam_date=exam_date, kwargs=kwargs[list(kwargs)[0]]))
+        deal_type = ConnMysql().get_info(get_deal_type_sql(hidden_desc=hidden_desc, exam_type=exam_type, exam_date=exam_date, kwargs=kwargs[list(kwargs)[0]]))
 
     limit_param = "cast(hd.limit_date as CHAR) as 限期日期,"
     current_param = "reviewman.realname as 复查人,"
@@ -168,8 +182,15 @@ def detail_of_hidden(hidden_desc, exam_type, exam_date, **kwargs):
             return _tem_sql_1 + current_param + _tem_sql_2 + _kw_none
 
 
-def get_deal_type(hidden_desc, exam_type, exam_date, **kwargs):
-    """查询隐患数据的处理状态,kwargs参数中主要是判断是否包含责任单位"""
+def get_deal_type_sql(hidden_desc, exam_type, exam_date, **kwargs):
+    """
+    查询隐患数据的处理状态,kwargs参数中主要是判断是否包含责任单位或者检查人
+    :param hidden_desc: 隐患描述内容
+    :param exam_type: 检查类型
+    :param exam_date: 检查时间
+    :param kwargs: 其他参数，比如责任单位/检查人。可为空
+    :return:
+    """
     if not kwargs:  # 不包含责任单位 隐患录入时使用
         return "select hd.deal_type from t_b_hidden_danger_exam hd where hd.problem_desc = '{}' AND hd.exam_type = ( SELECT tsp.typecode FROM t_s_type tsp " \
                "WHERE tsp.typename = '{}' ) AND hd.exam_date LIKE '{}%'".format(hidden_desc, exam_type, exam_date)
@@ -184,5 +205,15 @@ def get_deal_type(hidden_desc, exam_type, exam_date, **kwargs):
                    "AND d.problem_desc = '{}' AND u.realname = '{}'".format(exam_type, exam_date, hidden_desc, kwargs[list(kwargs)[0]][6:])
 
 
+def get_hazard_name_of_danger_sql():
+    """获取重大风险清单中危险源名称"""
+    return "select d.hazard_name from t_b_hazard_manage d INNER JOIN t_b_danger_source ds on d.id = ds.hazard_manage_id where ds.ismajor = '1';"
+
+
+def danger_address_rel_sql():
+    """风险与风险点关系：存在关联风险的地点"""
+    return "SELECT distinct a.address FROM t_b_address_info a INNER JOIN t_b_danger_address_rel da on da.address_id = a.id"
+
+
 if __name__ == '__main__':
-    print(detail_of_hidden(hidden_desc='现场', exam_type='矿领导带班', exam_date='2019-11-29', examUnit='x'))
+    print(detail_of_hidden_sql(hidden_desc='现场', exam_type='矿领导带班', exam_date='2019-11-29', examUnit='x'))
